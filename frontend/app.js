@@ -4,8 +4,14 @@ const sendBtn = document.getElementById('sendBtn');
 const voiceBtn = document.getElementById('voiceBtn');
 const clearBtn = document.getElementById('clearBtn');
 
-// 从本地存储读取历史
+// 聊天历史
 let history = JSON.parse(localStorage.getItem('chatHistory') || '[]');
+
+// 持续对话状态
+let recognition = null;
+let isContinuous = false;
+let isSpeaking = false;
+let isRecognizing = false;
 
 // 页面加载时恢复历史
 function loadHistory() {
@@ -27,19 +33,6 @@ function addMessage(text, isUser = false) {
   chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-// 使用后端 edge-tts 播放语音
-async function speak(text) {
-  try {
-    const res = await fetch(`http://127.0.0.1:8000/tts?text=${encodeURIComponent(text)}&voice=zh-CN-XiaoxiaoNeural`);
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    audio.play();
-  } catch (err) {
-    console.error('语音播放失败', err);
-  }
-}
-
 async function sendMessage() {
   const message = userInput.value.trim();
   if (!message) return;
@@ -47,6 +40,9 @@ async function sendMessage() {
   addMessage(message, true);
   userInput.value = '';
   sendBtn.disabled = true;
+
+  history.push({ role: 'user', content: message });
+  localStorage.setItem('chatHistory', JSON.stringify(history));
 
   const loadingDiv = document.createElement('div');
   loadingDiv.className = 'message bot';
@@ -61,58 +57,131 @@ async function sendMessage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         message: message,
-        history: history
+        history: history.slice(0, -1)
       })
     });
 
     const data = await res.json();
-    document.getElementById('loading')?.remove();
-    addMessage(data.reply);
+    const reply = data.reply || '嗯...我有点走神了，再说一次好不好？';
 
-    // 播放语音
-    speak(data.reply);
+    const loading = document.getElementById('loading');
+    if (loading) loading.remove();
 
-    // 更新历史
-    history.push({ role: 'user', content: message });
-    history.push({ role: 'assistant', content: data.reply });
+    addMessage(reply, false);
 
-    if (history.length > 20) {
-      history = history.slice(-20);
-    }
+    history.push({ role: 'assistant', content: reply });
     localStorage.setItem('chatHistory', JSON.stringify(history));
 
+    await speak(reply);
+
   } catch (err) {
-    document.getElementById('loading')?.remove();
-    addMessage('哎呀，网络出了点问题，稍后再试好不好？');
     console.error(err);
+    const loading = document.getElementById('loading');
+    if (loading) loading.remove();
+    addMessage('哎呀，网络出了点问题，稍后再试好不好？', false);
   }
 
   sendBtn.disabled = false;
-  userInput.focus();
 }
 
-// 事件绑定
-sendBtn.addEventListener('click', sendMessage);
-userInput.addEventListener('keypress', (e) => {
+// 播放语音
+async function speak(text) {
+  try {
+    isSpeaking = true;
+
+    // 说话时先停掉识别，避免抢麦
+    if (recognition && isRecognizing) {
+      try {
+        recognition.stop();
+      } catch (e) {}
+      isRecognizing = false;
+    }
+
+    const res = await fetch(
+      `http://127.0.0.1:8000/tts?text=${encodeURIComponent(text)}&voice=zh-CN-XiaoxiaoNeural`
+    );
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+
+    audio.onended = () => {
+      isSpeaking = false;
+      // 说完后，如果还在持续模式，自动继续听
+      if (isContinuous) {
+        setTimeout(() => {
+          startListening();
+        }, 500);
+      }
+    };
+
+    audio.onerror = () => {
+      isSpeaking = false;
+      if (isContinuous) {
+        setTimeout(() => {
+          startListening();
+        }, 500);
+      }
+    };
+
+    await audio.play();
+  } catch (err) {
+    console.error('语音播放失败', err);
+    isSpeaking = false;
+    if (isContinuous) {
+      setTimeout(() => {
+        startListening();
+      }, 500);
+    }
+  }
+}
+
+// 回车发送
+userInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') sendMessage();
 });
 
-// 清空聊天
+// 发送按钮
+sendBtn.addEventListener('click', sendMessage);
+
+// 清空历史
 if (clearBtn) {
   clearBtn.addEventListener('click', () => {
-    if (confirm('确定要清空和小暖的聊天记录吗？')) {
+    if (confirm('确定清空所有聊天记录吗？')) {
       history = [];
       localStorage.removeItem('chatHistory');
-      location.reload();
+      loadHistory();
     }
   });
 }
 
-// 页面加载时恢复历史
-loadHistory();
+// ========== 持续语音对话 ==========
+function startListening() {
+  if (!recognition || isSpeaking || isRecognizing) return;
 
-// ========== 语音识别部分 ==========
-let recognition = null;
+  try {
+    recognition.start();
+    isRecognizing = true;
+    voiceBtn.innerText = '🔴 聆听中...';
+    voiceBtn.style.background = '#ef4444';
+  } catch (e) {
+    // 已经在运行时会报错，忽略
+    console.log('启动识别:', e.message || e);
+  }
+}
+
+function stopContinuous() {
+  isContinuous = false;
+  isRecognizing = false;
+
+  if (recognition) {
+    try {
+      recognition.stop();
+    } catch (e) {}
+  }
+
+  voiceBtn.innerText = '🎤 说话';
+  voiceBtn.style.background = '#ec4899';
+}
 
 if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -123,22 +192,38 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
 
   recognition.onresult = (event) => {
     const text = event.results[0][0].transcript;
+    isRecognizing = false;
+
+    if (!text) {
+      // 没识别到内容，持续模式下继续听
+      if (isContinuous && !isSpeaking) {
+        setTimeout(() => startListening(), 300);
+      }
+      return;
+    }
+
     userInput.value = text;
-    voiceBtn.innerText = '🎤 说话';
-    voiceBtn.style.background = '#ec4899';
     sendMessage();
   };
 
   recognition.onerror = (event) => {
     console.error('语音识别错误:', event.error);
-    voiceBtn.innerText = '🎤 说话';
-    voiceBtn.style.background = '#ec4899';
-    alert('语音识别失败，请重试或检查麦克风权限');
+    isRecognizing = false;
+
+    // aborted 是我们主动 stop 的，不处理
+    if (event.error === 'aborted') return;
+
+    // 其他错误：如果还在持续模式，稍后再试
+    if (isContinuous && !isSpeaking) {
+      setTimeout(() => startListening(), 800);
+    } else {
+      stopContinuous();
+    }
   };
 
   recognition.onend = () => {
-    voiceBtn.innerText = '🎤 说话';
-    voiceBtn.style.background = '#ec4899';
+    isRecognizing = false;
+    // 不在这里自动重启，由 speak 结束后或 onresult 控制
   };
 } else {
   if (voiceBtn) {
@@ -147,16 +232,19 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
   }
 }
 
+// 点击按钮：开启 / 关闭持续对话
 if (voiceBtn) {
   voiceBtn.addEventListener('click', () => {
     if (!recognition) return;
 
-    if (voiceBtn.innerText.includes('说话')) {
-      recognition.start();
-      voiceBtn.innerText = '🔴 聆听中...';
-      voiceBtn.style.background = '#ef4444';
+    if (!isContinuous) {
+      isContinuous = true;
+      startListening();
     } else {
-      recognition.stop();
+      stopContinuous();
     }
   });
 }
+
+// 页面加载时恢复历史
+loadHistory();

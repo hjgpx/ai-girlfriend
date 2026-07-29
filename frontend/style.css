@@ -169,3 +169,16 @@ header {
 #clearBtn {
   background: #be185d;
 }
+/* 说话时轻微动画 */
+.character-img.speaking {
+  animation: speakPulse 0.6s ease-in-out infinite;
+}
+
+@keyframes speakPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.03);
+  }
+}

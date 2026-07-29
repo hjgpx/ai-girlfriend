@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>Live2D 测试</title>
+  <style>
+    body {
+      margin: 0;
+      background: #111;
+      height: 100vh;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 引入 OhMyLive2D -->
+  <script src="https://unpkg.com/oh-my-live2d@latest/dist/index.min.js"></script>
+
+  <script>
+    OML2D.loadOml2d({
+      models: [
+        {
+          path: 'https://model.oml2d.com/Senko_Normals/senko.model3.json',
+          scale: 0.15,
+          position: [0, 50]
+        }
+      ],
+      tips: {
+        style: {
+          fontSize: 16
+        }
+      }
+    });
+  </script>
+</body>
+</html>
