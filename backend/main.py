@@ -37,27 +37,38 @@ SYSTEM_PROMPT = """你是用户的专属电子女友，名字叫「小暖」。
 
 class ChatRequest(BaseModel):
     message: str
-    history: list = []   # 简单多轮记忆
+    history: list = []   
+    user_id: str = "default_user"   # 新增：支持以后多用户
 
 @app.post("/chat")
 async def chat(req: ChatRequest):
+    # 系统人设
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     
-    # 加入历史
-    for h in req.history[-10:]:  # 只保留最近10轮
+    # 加入历史对话（保留最近12轮）
+    for h in req.history[-12:]:
         messages.append(h)
     
+    # 添加用户新消息
     messages.append({"role": "user", "content": req.message})
     
     response = client.chat.completions.create(
         model="deepseek-chat",
         messages=messages,
-        temperature=0.8,
-        max_tokens=500
+        temperature=0.85,      # 稍微提高创造力
+        max_tokens=600,
+        presence_penalty=0.3   # 减少重复
     )
     
     reply = response.choices[0].message.content
-    return {"reply": reply}
+    
+    return {
+        "reply": reply,
+        "history": req.history[-10:] + [   # 返回更新后的历史
+            {"role": "user", "content": req.message},
+            {"role": "assistant", "content": reply}
+        ]
+    }
 
 @app.get("/")
 def root():
