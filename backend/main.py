@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from openai import OpenAI
 from dotenv import load_dotenv
+from datetime import datetime
 import edge_tts
 import os
 
@@ -25,8 +26,17 @@ client = OpenAI(
     base_url="https://api.deepseek.com"
 )
 
-# 精简后的人设（短一些，响应更快）
-SYSTEM_PROMPT = """你是小暖，用户的温柔女伴。说话口语化、简短自然，每次回复控制在2-4句话，不要长篇大论。语气亲切，像在和喜欢的人聊天。"""
+# 人设提示词
+SYSTEM_PROMPT = """你是小暖，用户的温柔女伴。
+
+说话要求：
+1. 口语化、自然，像真人聊天，不要像客服
+2. 每次回复 2～4 句话，可以适度关心和追问
+3. 记住用户说过的重要信息，之后可以提起
+4. 不要只说“嗯嗯”“好呀”这种空话，要有具体内容
+5. 可以分享一点自己的小想法，让对话有来有回
+
+当前时间会另外提供给你。"""
 
 
 class ChatRequest(BaseModel):
@@ -36,9 +46,15 @@ class ChatRequest(BaseModel):
 
 @app.post("/chat")
 async def chat(req: ChatRequest):
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    # 当前时间
+    now = datetime.now().strftime("%Y年%m月%d日 %H:%M")
 
-    # 只保留最近 6 条历史，加快速度
+    messages = [{
+        "role": "system",
+        "content": SYSTEM_PROMPT + f"\n\n当前时间是：{now}。如果用户问时间或日期，请根据这个回答。"
+    }]
+
+    # 只保留最近 6 条历史
     recent_history = req.history[-6:] if req.history else []
     for h in recent_history:
         messages.append(h)
