@@ -6,66 +6,88 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
+  background: #0a0a0a;
   height: 100vh;
   display: flex;
   justify-content: center;
   align-items: center;
+  overflow: hidden;
 }
 
 .container {
   width: 100%;
   max-width: 480px;
-  height: 90vh;
-  background: white;
-  border-radius: 20px;
-  box-shadow: 0 10px 40px rgba(236, 72, 153, 0.15);
+  height: 100vh;
+  background: #111;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
 }
 
+/* 人物占满上半部分 */
 header {
-  background: linear-gradient(90deg, #ec4899, #f472b6);
-  color: white;
-  padding: 16px 20px;
+  flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 14px;
+  justify-content: center;
+  position: relative;
+  background: #000;
+  min-height: 55vh;
 }
 
-.avatar {
-  width: 48px;
-  height: 48px;
-  background: white;
-  color: #ec4899;
-  border-radius: 50%;
+.character {
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
-  font-weight: bold;
+  overflow: hidden;
+}
+
+.character-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
+}
+
+.info {
+  position: absolute;
+  bottom: 16px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  background: linear-gradient(transparent, rgba(0,0,0,0.7));
+  padding: 40px 16px 12px;
 }
 
 .info h1 {
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 600;
+  color: #fff;
+  margin: 0 0 4px;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.8);
 }
 
 .status {
   font-size: 13px;
-  opacity: 0.9;
+  color: #f9a8d4;
+  margin: 0;
 }
 
+/* 聊天区域变小，在下方 */
 .chat-box {
-  flex: 1;
-  padding: 20px;
+  height: 28vh;
+  padding: 12px 16px;
   overflow-y: auto;
-  background: #fdf2f8;
+  background: rgba(20, 10, 20, 0.95);
 }
 
 .message {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   display: flex;
 }
 
@@ -74,19 +96,18 @@ header {
 }
 
 .bubble {
-  max-width: 75%;
-  padding: 12px 16px;
-  border-radius: 18px;
-  line-height: 1.5;
-  font-size: 15px;
+  max-width: 80%;
+  padding: 10px 14px;
+  border-radius: 16px;
+  line-height: 1.45;
+  font-size: 14px;
   word-break: break-word;
 }
 
 .message.bot .bubble {
-  background: white;
-  color: #333;
+  background: rgba(255,255,255,0.12);
+  color: #fff;
   border-bottom-left-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
 .message.user .bubble {
@@ -95,43 +116,56 @@ header {
   border-bottom-right-radius: 4px;
 }
 
+/* 底部输入区 */
 .input-area {
-  padding: 16px;
-  background: white;
-  border-top: 1px solid #fce7f3;
+  padding: 12px 14px 18px;
+  background: #1a0a14;
   display: flex;
-  gap: 10px;
+  gap: 8px;
+  align-items: center;
+  border-top: 1px solid rgba(236, 72, 153, 0.3);
 }
 
 #userInput {
   flex: 1;
-  padding: 12px 16px;
-  border: 1px solid #f9a8d4;
-  border-radius: 24px;
+  padding: 11px 14px;
+  border: 1px solid rgba(249, 168, 212, 0.35);
+  border-radius: 22px;
   outline: none;
-  font-size: 15px;
+  font-size: 14px;
+  background: rgba(255,255,255,0.08);
+  color: white;
+}
+
+#userInput::placeholder {
+  color: rgba(255,255,255,0.4);
 }
 
 #userInput:focus {
   border-color: #ec4899;
 }
 
-#sendBtn {
-  padding: 0 22px;
+#sendBtn, #voiceBtn, #clearBtn {
+  padding: 0 14px;
+  height: 40px;
   background: #ec4899;
   color: white;
   border: none;
-  border-radius: 24px;
-  font-size: 15px;
+  border-radius: 20px;
+  font-size: 13px;
   cursor: pointer;
-  transition: background 0.2s;
+  white-space: nowrap;
 }
 
-#sendBtn:hover {
+#sendBtn:hover, #voiceBtn:hover, #clearBtn:hover {
   background: #db2777;
 }
 
 #sendBtn:disabled {
-  background: #f9a8d4;
+  background: #9d174d;
   cursor: not-allowed;
+}
+
+#clearBtn {
+  background: #be185d;
 }
