@@ -1,9 +1,23 @@
 const chatBox = document.getElementById('chatBox');
 const userInput = document.getElementById('userInput');
 const sendBtn = document.getElementById('sendBtn');
+const voiceBtn = document.getElementById('voiceBtn');
+const clearBtn = document.getElementById('clearBtn');
 
-// 简单的历史记录（只保留最近几轮）
-let history = [];
+// 从本地存储读取历史
+let history = JSON.parse(localStorage.getItem('chatHistory') || '[]');
+
+// 页面加载时恢复历史
+function loadHistory() {
+  const messages = chatBox.querySelectorAll('.message');
+  messages.forEach((msg, index) => {
+    if (index > 0) msg.remove();
+  });
+
+  history.forEach(item => {
+    addMessage(item.content, item.role === 'user');
+  });
+}
 
 function addMessage(text, isUser = false) {
   const div = document.createElement('div');
@@ -13,16 +27,27 @@ function addMessage(text, isUser = false) {
   chatBox.scrollTop = chatBox.scrollHeight;
 }
 
+// 使用后端 edge-tts 播放语音
+async function speak(text) {
+  try {
+    const res = await fetch(`http://127.0.0.1:8000/tts?text=${encodeURIComponent(text)}&voice=zh-CN-XiaoxiaoNeural`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.play();
+  } catch (err) {
+    console.error('语音播放失败', err);
+  }
+}
+
 async function sendMessage() {
   const message = userInput.value.trim();
   if (!message) return;
 
-  // 显示用户消息
   addMessage(message, true);
   userInput.value = '';
   sendBtn.disabled = true;
 
-  // 显示“正在输入”
   const loadingDiv = document.createElement('div');
   loadingDiv.className = 'message bot';
   loadingDiv.id = 'loading';
@@ -41,21 +66,20 @@ async function sendMessage() {
     });
 
     const data = await res.json();
-    
-    // 移除加载提示
     document.getElementById('loading')?.remove();
-
-    // 显示回复
     addMessage(data.reply);
+
+    // 播放语音
+    speak(data.reply);
 
     // 更新历史
     history.push({ role: 'user', content: message });
     history.push({ role: 'assistant', content: data.reply });
 
-    // 只保留最近 10 轮
     if (history.length > 20) {
       history = history.slice(-20);
     }
+    localStorage.setItem('chatHistory', JSON.stringify(history));
 
   } catch (err) {
     document.getElementById('loading')?.remove();
@@ -72,3 +96,67 @@ sendBtn.addEventListener('click', sendMessage);
 userInput.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') sendMessage();
 });
+
+// 清空聊天
+if (clearBtn) {
+  clearBtn.addEventListener('click', () => {
+    if (confirm('确定要清空和小暖的聊天记录吗？')) {
+      history = [];
+      localStorage.removeItem('chatHistory');
+      location.reload();
+    }
+  });
+}
+
+// 页面加载时恢复历史
+loadHistory();
+
+// ========== 语音识别部分 ==========
+let recognition = null;
+
+if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  recognition = new SpeechRecognition();
+  recognition.lang = 'zh-CN';
+  recognition.continuous = false;
+  recognition.interimResults = false;
+
+  recognition.onresult = (event) => {
+    const text = event.results[0][0].transcript;
+    userInput.value = text;
+    voiceBtn.innerText = '🎤 说话';
+    voiceBtn.style.background = '#ec4899';
+    sendMessage();
+  };
+
+  recognition.onerror = (event) => {
+    console.error('语音识别错误:', event.error);
+    voiceBtn.innerText = '🎤 说话';
+    voiceBtn.style.background = '#ec4899';
+    alert('语音识别失败，请重试或检查麦克风权限');
+  };
+
+  recognition.onend = () => {
+    voiceBtn.innerText = '🎤 说话';
+    voiceBtn.style.background = '#ec4899';
+  };
+} else {
+  if (voiceBtn) {
+    voiceBtn.disabled = true;
+    voiceBtn.innerText = '不支持语音';
+  }
+}
+
+if (voiceBtn) {
+  voiceBtn.addEventListener('click', () => {
+    if (!recognition) return;
+
+    if (voiceBtn.innerText.includes('说话')) {
+      recognition.start();
+      voiceBtn.innerText = '🔴 聆听中...';
+      voiceBtn.style.background = '#ef4444';
+    } else {
+      recognition.stop();
+    }
+  });
+}

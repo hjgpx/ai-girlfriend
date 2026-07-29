@@ -1,8 +1,13 @@
+import edge_tts
+import asyncio
+import base64
+from fastapi.responses import Response
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from openai import OpenAI
 from config import DEEPSEEK_API_KEY, DEEPSEEK_BASE_URL
+
 
 app = FastAPI(title="AI Girlfriend Backend")
 
@@ -35,6 +40,12 @@ SYSTEM_PROMPT = """你是用户的专属电子女友，名字叫「小暖」。
 - 不要一次性说太多
 - 可以主动问问题，拉近关系"""
 
+# 简单情感记忆（后续可以扩展）
+EMOTION_MEMORY = {
+    "mood": "neutral",
+    "last_topics": []
+}
+
 class ChatRequest(BaseModel):
     message: str
     history: list = []   
@@ -64,7 +75,7 @@ async def chat(req: ChatRequest):
     
     return {
         "reply": reply,
-        "history": req.history[-10:] + [   # 返回更新后的历史
+        "history": req.history[-10:] + [
             {"role": "user", "content": req.message},
             {"role": "assistant", "content": reply}
         ]
@@ -73,3 +84,14 @@ async def chat(req: ChatRequest):
 @app.get("/")
 def root():
     return {"status": "AI Girlfriend backend is running"}
+
+@app.get("/tts")
+async def tts(text: str, voice: str = "zh-CN-XiaoxiaoNeural"):
+    """文字转语音，返回 mp3 音频"""
+    communicate = edge_tts.Communicate(text, voice)
+    audio_data = b""
+    async for chunk in communicate.stream():
+        if chunk["type"] == "audio":
+            audio_data += chunk["data"]
+    
+    return Response(content=audio_data, media_type="audio/mpeg")
