@@ -84,12 +84,11 @@ async function sendMessage() {
   sendBtn.disabled = false;
 }
 
-// 播放语音
+// 播放语音（自动去掉括号里的动作描写）
 async function speak(text) {
   try {
     isSpeaking = true;
 
-    // 说话时先停掉识别，避免抢麦
     if (recognition && isRecognizing) {
       try {
         recognition.stop();
@@ -97,8 +96,23 @@ async function speak(text) {
       isRecognizing = false;
     }
 
+    // 去掉（）和()里的内容，避免被读出来
+    let speakText = text
+      .replace(/（[^）]*）/g, '')
+      .replace(/\([^)]*\)/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!speakText) {
+      isSpeaking = false;
+      if (isContinuous) {
+        setTimeout(() => startListening(), 500);
+      }
+      return;
+    }
+
     const res = await fetch(
-      `http://127.0.0.1:8000/tts?text=${encodeURIComponent(text)}&voice=zh-CN-XiaoxiaoNeural`
+      `http://127.0.0.1:8000/tts?text=${encodeURIComponent(speakText)}&voice=zh-CN-XiaoxiaoNeural`
     );
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
@@ -106,20 +120,15 @@ async function speak(text) {
 
     audio.onended = () => {
       isSpeaking = false;
-      // 说完后，如果还在持续模式，自动继续听
       if (isContinuous) {
-        setTimeout(() => {
-          startListening();
-        }, 500);
+        setTimeout(() => startListening(), 500);
       }
     };
 
     audio.onerror = () => {
       isSpeaking = false;
       if (isContinuous) {
-        setTimeout(() => {
-          startListening();
-        }, 500);
+        setTimeout(() => startListening(), 500);
       }
     };
 
@@ -128,9 +137,7 @@ async function speak(text) {
     console.error('语音播放失败', err);
     isSpeaking = false;
     if (isContinuous) {
-      setTimeout(() => {
-        startListening();
-      }, 500);
+      setTimeout(() => startListening(), 500);
     }
   }
 }
@@ -164,7 +171,6 @@ function startListening() {
     voiceBtn.innerText = '🔴 聆听中...';
     voiceBtn.style.background = '#ef4444';
   } catch (e) {
-    // 已经在运行时会报错，忽略
     console.log('启动识别:', e.message || e);
   }
 }
@@ -195,7 +201,6 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     isRecognizing = false;
 
     if (!text) {
-      // 没识别到内容，持续模式下继续听
       if (isContinuous && !isSpeaking) {
         setTimeout(() => startListening(), 300);
       }
@@ -210,10 +215,8 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     console.error('语音识别错误:', event.error);
     isRecognizing = false;
 
-    // aborted 是我们主动 stop 的，不处理
     if (event.error === 'aborted') return;
 
-    // 其他错误：如果还在持续模式，稍后再试
     if (isContinuous && !isSpeaking) {
       setTimeout(() => startListening(), 800);
     } else {
@@ -223,7 +226,6 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
 
   recognition.onend = () => {
     isRecognizing = false;
-    // 不在这里自动重启，由 speak 结束后或 onresult 控制
   };
 } else {
   if (voiceBtn) {
@@ -232,7 +234,6 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
   }
 }
 
-// 点击按钮：开启 / 关闭持续对话
 if (voiceBtn) {
   voiceBtn.addEventListener('click', () => {
     if (!recognition) return;
