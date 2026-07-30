@@ -5,18 +5,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>小暖 - 电子女友</title>
   <link rel="stylesheet" href="style.css">
+
+  <!-- Three.js + VRM 库 -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/",
+      "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3/lib/three-vrm.module.min.js"
+    }
+  }
+  </script>
 </head>
 <body>
   <div class="container">
-<header>
-  <div class="character">
-   <img src="xiaonuan.webp" alt="小暖" class="character-img">
-  </div>
-  <div class="info">
-    <h1>小暖</h1>
-    <p class="status">在线 · 想你了</p>
-  </div>
-</header>
+    <header>
+      <div class="character" id="vrmContainer">
+        <canvas id="vrmCanvas"></canvas>
+        <div class="loading-tip" id="loadingTip">小暖正在准备中...</div>
+      </div>
+      <div class="info">
+        <h1>小暖</h1>
+        <p class="status">在线 · 想你了</p>
+      </div>
+    </header>
 
     <div class="chat-box" id="chatBox">
       <div class="message bot">
@@ -24,13 +36,15 @@
       </div>
     </div>
 
-<div class="input-area">
-  <input type="text" id="userInput" placeholder="想对小暖说点什么..." autocomplete="off">
-  <button id="sendBtn">发送</button>
-  <button id="voiceBtn" style="background:#ec4899; margin-left:6px;">🎤 说话</button>
-  <button id="clearBtn" style="background:#f472b6; margin-left:6px;">清空</button>
-</div>
+    <div class="input-area">
+      <input type="text" id="userInput" placeholder="想对小暖说点什么..." autocomplete="off">
+      <button id="sendBtn">发送</button>
+      <button id="voiceBtn" style="background:#ec4899; margin-left:6px;">🎤 说话</button>
+      <button id="clearBtn" style="background:#f472b6; margin-left:6px;">清空</button>
+    </div>
+  </div>
 
-  <script src="app.js"></script>
+  <script type="module" src="vrm-avatar.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

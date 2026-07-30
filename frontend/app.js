@@ -1,3 +1,5 @@
+import { connectAudio, startSpeaking, stopSpeaking } from './vrm-avatar.js';
+
 const chatBox = document.getElementById('chatBox');
 const userInput = document.getElementById('userInput');
 const sendBtn = document.getElementById('sendBtn');
@@ -84,11 +86,12 @@ async function sendMessage() {
   sendBtn.disabled = false;
 }
 
-// 播放语音（自动去掉括号里的动作描写）
+// 播放语音 + 驱动嘴巴
 async function speak(text) {
   try {
     isSpeaking = true;
 
+    // 说话时先停掉识别
     if (recognition && isRecognizing) {
       try {
         recognition.stop();
@@ -96,14 +99,9 @@ async function speak(text) {
       isRecognizing = false;
     }
 
-    // 去掉（）和()里的内容，避免被读出来
-    let speakText = text
-      .replace(/（[^）]*）/g, '')
-      .replace(/\([^)]*\)/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
-
-    if (!speakText) {
+    // 去掉括号动作描写，避免朗读
+    const cleanText = text.replace(/[（(][^）)]*[）)]/g, '').trim();
+    if (!cleanText) {
       isSpeaking = false;
       if (isContinuous) {
         setTimeout(() => startListening(), 500);
@@ -112,14 +110,18 @@ async function speak(text) {
     }
 
     const res = await fetch(
-      `http://127.0.0.1:8000/tts?text=${encodeURIComponent(speakText)}&voice=zh-CN-XiaoxiaoNeural`
+      `http://127.0.0.1:8000/tts?text=${encodeURIComponent(cleanText)}&voice=zh-CN-XiaoxiaoNeural`
     );
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
 
+    // 连接 VRM 唇形同步
+    connectAudio(audio);
+
     audio.onended = () => {
       isSpeaking = false;
+      stopSpeaking();
       if (isContinuous) {
         setTimeout(() => startListening(), 500);
       }
@@ -127,6 +129,7 @@ async function speak(text) {
 
     audio.onerror = () => {
       isSpeaking = false;
+      stopSpeaking();
       if (isContinuous) {
         setTimeout(() => startListening(), 500);
       }
@@ -136,6 +139,7 @@ async function speak(text) {
   } catch (err) {
     console.error('语音播放失败', err);
     isSpeaking = false;
+    stopSpeaking();
     if (isContinuous) {
       setTimeout(() => startListening(), 500);
     }
@@ -234,6 +238,7 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
   }
 }
 
+// 点击按钮：开启 / 关闭持续对话
 if (voiceBtn) {
   voiceBtn.addEventListener('click', () => {
     if (!recognition) return;
