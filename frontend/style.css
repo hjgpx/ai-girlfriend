@@ -207,3 +207,10 @@ header {
   pointer-events: none;
   z-index: 10;
 }
+#avatar-photo {
+  transition: opacity 0.35s ease;
+}
+
+#avatar-photo.fade {
+  opacity: 0.4;
+}

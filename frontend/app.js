@@ -1,5 +1,3 @@
-import { connectAudio, startSpeaking, stopSpeaking } from './vrm-avatar.js';
-
 const chatBox = document.getElementById('chatBox');
 const userInput = document.getElementById('userInput');
 const sendBtn = document.getElementById('sendBtn');
@@ -14,6 +12,29 @@ let recognition = null;
 let isContinuous = false;
 let isSpeaking = false;
 let isRecognizing = false;
+
+// 切换角色图片
+function setCharacterImage(src) {
+  const img = document.getElementById('avatar-photo');
+  if (!img) return;
+
+  img.classList.add('fade');
+  setTimeout(() => {
+    img.src = src;
+    img.classList.remove('fade');
+  }, 200);
+}
+
+// 临时随机切换表情（方便测试）
+function pickExpression(reply) {
+  const list = [
+    'models/xiaonuan_idle.png',
+    'models/xiaonuan_shy.png',
+    'models/xiaonuan_angry.png'
+  ];
+  const index = Math.floor(Math.random() * list.length);
+  return list[index];
+}
 
 // 页面加载时恢复历史
 function loadHistory() {
@@ -74,6 +95,9 @@ async function sendMessage() {
     history.push({ role: 'assistant', content: reply });
     localStorage.setItem('chatHistory', JSON.stringify(history));
 
+    // 根据回复切换表情
+    setCharacterImage(pickExpression(reply));
+
     await speak(reply);
 
   } catch (err) {
@@ -86,12 +110,12 @@ async function sendMessage() {
   sendBtn.disabled = false;
 }
 
-// 播放语音 + 驱动嘴巴
+// 播放语音
 async function speak(text) {
   try {
     isSpeaking = true;
 
-    // 说话时先停掉识别
+    // 说话时先停掉识别，避免抢麦
     if (recognition && isRecognizing) {
       try {
         recognition.stop();
@@ -99,39 +123,29 @@ async function speak(text) {
       isRecognizing = false;
     }
 
-    // 去掉括号动作描写，避免朗读
-    const cleanText = text.replace(/[（(][^）)]*[）)]/g, '').trim();
-    if (!cleanText) {
-      isSpeaking = false;
-      if (isContinuous) {
-        setTimeout(() => startListening(), 500);
-      }
-      return;
-    }
-
     const res = await fetch(
-      `http://127.0.0.1:8000/tts?text=${encodeURIComponent(cleanText)}&voice=zh-CN-XiaoxiaoNeural`
+      `http://127.0.0.1:8000/tts?text=${encodeURIComponent(text)}&voice=zh-CN-XiaoxiaoNeural`
     );
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
 
-    // 连接 VRM 唇形同步
-    connectAudio(audio);
-
     audio.onended = () => {
       isSpeaking = false;
-      stopSpeaking();
+      // 说完后，如果还在持续模式，自动继续听
       if (isContinuous) {
-        setTimeout(() => startListening(), 500);
+        setTimeout(() => {
+          startListening();
+        }, 500);
       }
     };
 
     audio.onerror = () => {
       isSpeaking = false;
-      stopSpeaking();
       if (isContinuous) {
-        setTimeout(() => startListening(), 500);
+        setTimeout(() => {
+          startListening();
+        }, 500);
       }
     };
 
@@ -139,9 +153,10 @@ async function speak(text) {
   } catch (err) {
     console.error('语音播放失败', err);
     isSpeaking = false;
-    stopSpeaking();
     if (isContinuous) {
-      setTimeout(() => startListening(), 500);
+      setTimeout(() => {
+        startListening();
+      }, 500);
     }
   }
 }
@@ -175,6 +190,7 @@ function startListening() {
     voiceBtn.innerText = '🔴 聆听中...';
     voiceBtn.style.background = '#ef4444';
   } catch (e) {
+    // 已经在运行时会报错，忽略
     console.log('启动识别:', e.message || e);
   }
 }
@@ -205,6 +221,7 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     isRecognizing = false;
 
     if (!text) {
+      // 没识别到内容，持续模式下继续听
       if (isContinuous && !isSpeaking) {
         setTimeout(() => startListening(), 300);
       }
@@ -219,8 +236,10 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
     console.error('语音识别错误:', event.error);
     isRecognizing = false;
 
+    // aborted 是我们主动 stop 的，不处理
     if (event.error === 'aborted') return;
 
+    // 其他错误：如果还在持续模式，稍后再试
     if (isContinuous && !isSpeaking) {
       setTimeout(() => startListening(), 800);
     } else {
@@ -230,6 +249,7 @@ if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
 
   recognition.onend = () => {
     isRecognizing = false;
+    // 不在这里自动重启，由 speak 结束后或 onresult 控制
   };
 } else {
   if (voiceBtn) {

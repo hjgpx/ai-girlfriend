@@ -18,12 +18,12 @@
   </script>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div class="character" id="vrmContainer">
-        <canvas id="vrmCanvas"></canvas>
-        <div class="loading-tip" id="loadingTip">小暖正在准备中...</div>
-      </div>
+<div class="character" id="vrmContainer">
+  <img id="avatar-photo" src="models/xiaonuan_idle.png" alt="小暖"
+       style="max-width: 360px; width: 100%; height: auto; display: block; margin: 0 auto;" />
+  <canvas id="vrmCanvas" style="display:none;"></canvas>
+  <div class="loading-tip" id="loadingTip" style="display:none;">小暖正在准备中...</div>
+</div>
       <div class="info">
         <h1>小暖</h1>
         <p class="status">在线 · 想你了</p>
@@ -41,6 +41,7 @@
       <button id="sendBtn">发送</button>
       <button id="voiceBtn" style="background:#ec4899; margin-left:6px;">🎤 说话</button>
       <button id="clearBtn" style="background:#f472b6; margin-left:6px;">清空</button>
+      
     </div>
   </div>
 

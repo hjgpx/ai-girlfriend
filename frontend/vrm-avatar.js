@@ -83,6 +83,19 @@ function loadVRM(url) {
       }
       scene.add(vrm.scene);
       currentVrm = vrm;
+      // 把手臂从 T 字姿势放下
+const humanoid = vrm.humanoid;
+if (humanoid) {
+  const leftUpperArm = humanoid.getNormalizedBoneNode('leftUpperArm');
+  const rightUpperArm = humanoid.getNormalizedBoneNode('rightUpperArm');
+  const leftLowerArm = humanoid.getNormalizedBoneNode('leftLowerArm');
+  const rightLowerArm = humanoid.getNormalizedBoneNode('rightLowerArm');
+
+  if (leftUpperArm) leftUpperArm.rotation.z = 1.2;
+  if (rightUpperArm) rightUpperArm.rotation.z = -1.2;
+  if (leftLowerArm) leftLowerArm.rotation.y = 0.3;
+  if (rightLowerArm) rightLowerArm.rotation.y = -0.3;
+}
 
       const tip = document.getElementById('loadingTip');
       if (tip) tip.style.display = 'none';
